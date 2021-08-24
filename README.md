@@ -1,5 +1,64 @@
-iio-sensor-proxy
+iio-sensor-proxy version 2
 ================
+
+I(Anthony Guevara) modified this program so that I could get my 2-in-1 touch screen to rotate based on the screen orientation. This means that if you rotate the laptop 90 degrees then the screen will follow and adjust to the current orientation. I run Gentoo Linux and this was an issue on my distro and this is the solution. Once you compile the program you should write a daemon to make sure the program is always running and that it restarts if it crashes. An RC script should also be created. I will eventually write these wehn I get time. 
+
+The modifications were made to the `monitor-sensor.c` file. Here is the diff:
+
+```javascript
+diff --git a/src/monitor-sensor.c b/src/monitor-sensor.c
+index 7eb35cc..0f10ae7 100644
+--- a/src/monitor-sensor.c
++++ b/src/monitor-sensor.c
+@@ -7,6 +7,9 @@
+  *
+  */
+ 
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
+ #include <gio/gio.h>
+ 
+ static GMainLoop *loop;
+@@ -22,6 +25,11 @@ properties_changed (GDBusProxy *proxy,
+ 	GVariant *v;
+ 	GVariantDict dict;
+ 
++	const char *normal    = "normal";
++	const char *left_up   = "left-up";
++	const char *right_up  = "right-up";
++	const char *bottom_up = "bottom-up";
++
+ 	g_variant_dict_init (&dict, changed_properties);
+ 
+ 	if (g_variant_dict_contains (&dict, "HasAccelerometer")) {
+@@ -34,7 +42,24 @@ properties_changed (GDBusProxy *proxy,
+ 	}
+ 	if (g_variant_dict_contains (&dict, "AccelerometerOrientation")) {
+ 		v = g_dbus_proxy_get_cached_property (iio_proxy, "AccelerometerOrientation");
+-		g_print ("    Accelerometer orientation changed: %s\n", g_variant_get_string (v, NULL));
++		//printf("Debug string: %s", (char *)g_variant_get_string(v, NULL));
++		if(strncmp((char *)g_variant_get_string(v, NULL), left_up, 43) == 0) {
++			system("/usr/bin/xrandr -o left");
++			printf("  -> Rotating screen left with 'xrandr -o left'.\n");
++		}
++		else if(strncmp((char *)g_variant_get_string(v, NULL), right_up, 43) == 0) { 
++			system("/usr/bin/xrandr -o right");	
++			printf("  -> Rotating screen right with 'xrandr -o right'.\n");
++		}
++		else if(strncmp((char *)g_variant_get_string(v, NULL), bottom_up, 43) == 0) {
++			system("/usr/bin/xrandr -o inverted");	
++			printf("  -> Inverting screen with 'xrandr -o inverted' now.\n");
++		}
++		else if(strncmp((char *)g_variant_get_string(v, NULL), normal, 43) == 0) {
++			system("/usr/bin/xrandr -o normal");	
++			printf("  -> Setting screen back to normal with 'xrandr -o normal'.\n");
++		}
++		g_print ("Accelerometer orientation changed: %s\n", g_variant_get_string (v, NULL));
+ 		g_variant_unref (v);
+ 	}
+ 	if (g_variant_dict_contains (&dict, "HasAmbientLight")) {
+```
 
 IIO sensors to D-Bus proxy
 
